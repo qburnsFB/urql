@@ -19,7 +19,7 @@ const logMsg = msg => log(chalk`[{cyan deploy/surge}] ${msg}`);
 
 const main = async () => {
   logMsg(chalk`Uploading files to {cyan ${DOMAIN}}`);
-  await execa('surge', ['--project', SRC, '--domain', DOMAIN], EXECA_OPTS);
+  await execa('yarn', ['run', 'surge', '--project', SRC, '--domain', DOMAIN], EXECA_OPTS);
 };
 
 if (require.main === module) {
