@@ -1,3 +1,4 @@
+import * as os from 'os';
 import { resolve } from 'path';
 import constants from './src/constants';
 import Document from './src/html';
@@ -40,6 +41,8 @@ export default {
   getSiteData: () => ({
     title: constants.docsTitle,
   }),
+
+  maxThreads: Math.min(8, os.cpus().length / 2),
 
   getRoutes: async () => [
     {
