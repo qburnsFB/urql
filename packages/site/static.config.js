@@ -2,6 +2,9 @@ import { resolve } from 'path';
 import constants from './src/constants';
 import Document from './src/html';
 
+const isStaging = process.env.REACT_STATIC_STAGING === 'true';
+const basePath = 'open-source/urql';
+
 export default {
   plugins: [
     resolve(__dirname, 'plugins/monorepo-fix/'),
@@ -22,7 +25,7 @@ export default {
 
   paths: {
     src: 'src',
-    dist: 'dist',
+    dist: isStaging ? `dist/${basePath}` : 'dist',
     buildArtifacts: 'node_modules/.cache/react-static/artifacts/',
     devDist: 'node_modules/.cache/react-static/dist/',
     temp: 'node_modules/.cache/react-static/temp/',
