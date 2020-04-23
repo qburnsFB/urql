@@ -40,6 +40,7 @@ import {
 } from './types';
 
 type OperationResultWithMeta = OperationResult & {
+  dependencies: Set<string>;
   outcome: CacheOutcome;
 };
 
@@ -73,6 +74,30 @@ const toRequestPolicy = (
   },
 });
 
+const addToSet = <T>(target: Set<T>, source: void | Set<T>) => {
+  if (source) {
+    source.forEach(value => {
+      target.add(value);
+    });
+  }
+};
+
+const subtractFromSet = <T>(target: Set<T>, source: void | Set<T>) => {
+  if (source) {
+    source.forEach(value => {
+      target.delete(value);
+    });
+  }
+};
+
+const isIntersecting = <T>(target: Set<T>, source: Set<T>) => {
+  let intersects = false;
+  source.forEach(value => {
+    intersects = intersects || target.has(value);
+  });
+  return intersects;
+};
+
 export interface CacheExchangeOpts {
   updates?: Partial<UpdatesConfig>;
   resolvers?: ResolverConfig;
@@ -96,7 +121,10 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
     });
   }
 
+  // A mapping from optimistic mutation keys to their dependencies set
   const optimisticKeysToDependencies = new Map<number, Set<string>>();
+  // A set of blocked dependencies (no network call allowed) during optimistic mutations
+  const blockedDependencies = new Set<string>();
   const ops: OperationMap = new Map();
   const deps: DependentOperations = makeDict();
 
@@ -128,7 +156,14 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
         const op = ops.get(key);
         if (op) {
           ops.delete(key);
-          client.reexecuteOperation(toRequestPolicy(op, 'cache-first'));
+          client.reexecuteOperation(
+            toRequestPolicy(
+              op,
+              op.context.requestPolicy === 'cache-and-network'
+                ? 'cache-and-network'
+                : 'cache-first'
+            )
+          );
         }
       }
     });
@@ -148,6 +183,7 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
       const { dependencies } = writeOptimistic(store, operation, operation.key);
       if (dependencies.size !== 0) {
         optimisticKeysToDependencies.set(operation.key, dependencies);
+        addToSet(blockedDependencies, dependencies);
         const pendingOperations = new Set<number>();
         collectPendingOperations(pendingOperations, dependencies);
         executePendingOperations(operation, pendingOperations);
@@ -192,6 +228,7 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
 
     return {
       outcome: cacheOutcome,
+      dependencies: res.dependencies,
       operation,
       data: res.data,
     };
@@ -207,10 +244,10 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
 
     if (operation.operationName === 'mutation') {
       // Collect previous dependencies that have been written for optimistic updates
-      collectPendingOperations(
-        pendingOperations,
-        optimisticKeysToDependencies.get(key)
-      );
+      const optimisticDependencies = optimisticKeysToDependencies.get(key);
+      collectPendingOperations(pendingOperations, optimisticDependencies);
+      // Unblock optimistic dependencies that have previously been blocked
+      subtractFromSet(blockedDependencies, optimisticDependencies);
       optimisticKeysToDependencies.delete(key);
     } else {
       reserveLayer(store.data, operation.key);
@@ -222,7 +259,10 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
       // updated
       const writeDependencies = write(store, operation, result.data, key)
         .dependencies;
+
       collectPendingOperations(pendingOperations, writeDependencies);
+      // Unblock dependencies that have been overwritten anyway
+      subtractFromSet(blockedDependencies, writeDependencies);
 
       const queryResult = query(store, operation, result.data);
       result.data = queryResult.data;
@@ -328,9 +368,15 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
               outcome === 'partial')
           ) {
             result.stale = true;
-            client.reexecuteOperation(
-              toRequestPolicy(operation, 'network-only')
+            const isBlocked = isIntersecting(
+              blockedDependencies,
+              res.dependencies
             );
+            if (!isBlocked) {
+              client.reexecuteOperation(
+                toRequestPolicy(operation, 'network-only')
+              );
+            }
           }
 
           dispatchDebug({
