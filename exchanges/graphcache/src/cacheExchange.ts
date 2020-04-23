@@ -362,12 +362,13 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
             extensions: res.extensions,
           };
 
+          const isCacheAndNetwork = operation.context.requestPolicy === 'cache-and-network';
+
           if (
-            operation.context.requestPolicy === 'cache-and-network' ||
+            isCacheAndNetwork ||
             (operation.context.requestPolicy === 'cache-first' &&
               outcome === 'partial')
           ) {
-            result.stale = true;
             const isBlocked = isIntersecting(
               blockedDependencies,
               res.dependencies
@@ -377,6 +378,8 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
                 toRequestPolicy(operation, 'network-only')
               );
             }
+
+            result.stale = !isBlocked || !isCacheAndNetwork;
           }
 
           dispatchDebug({
