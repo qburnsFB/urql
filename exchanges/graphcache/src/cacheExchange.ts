@@ -157,12 +157,7 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
         if (op) {
           ops.delete(key);
           client.reexecuteOperation(
-            toRequestPolicy(
-              op,
-              op.context.requestPolicy === 'cache-and-network'
-                ? 'cache-and-network'
-                : 'cache-first'
-            )
+            toRequestPolicy(op, 'cache-first')
           );
         }
       }
