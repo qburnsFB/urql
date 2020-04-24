@@ -490,7 +490,7 @@ const createLayer = (data: InMemoryData, layerKey: number) => {
 };
 
 /** Clears all links and records of an optimistic layer */
-const clearLayer = (data: InMemoryData, layerKey: number) => {
+export const clearLayer = (data: InMemoryData, layerKey: number) => {
   if (data.refLock[layerKey]) {
     delete data.refLock[layerKey];
     delete data.records.optimistic[layerKey];

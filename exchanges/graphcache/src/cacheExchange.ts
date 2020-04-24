@@ -28,7 +28,13 @@ import {
 import { query, write, writeOptimistic } from './operations';
 import { makeDict, isDictEmpty } from './helpers/dict';
 import { filterVariables, getMainOperation } from './ast';
-import { Store, noopDataState, hydrateData, reserveLayer } from './store';
+import {
+  Store,
+  noopDataState,
+  hydrateData,
+  reserveLayer,
+  clearLayer,
+} from './store';
 
 import {
   UpdatesConfig,
@@ -98,6 +104,7 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
 
   const optimisticKeysToDependencies: OptimisticDependencies = new Map();
   const mutationResultBuffer: OperationResult[] = [];
+  const subscriptionResultBuffer: OperationResult[] = [];
   const ops: OperationMap = new Map();
   const blockedDependencies: Dependencies = makeDict();
   const requestedRefetch: Operations = new Set();
@@ -214,9 +221,11 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
     updateDependencies(operation, res.dependencies);
 
     return {
-      outcome: cacheOutcome,
       operation,
       data: res.data,
+      error: undefined,
+      extensions: undefined,
+      outcome: cacheOutcome,
       dependencies: res.dependencies,
     };
   };
@@ -225,7 +234,7 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
   const updateCacheWithResult = (
     result: OperationResult,
     pendingOperations: Operations
-  ): OperationResult => {
+  ): void | OperationResult => {
     const { operation, error, extensions } = result;
     const { key } = operation;
 
@@ -246,6 +255,15 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
         .dependencies;
       collectPendingOperations(pendingOperations, writeDependencies);
 
+      if (
+        operation.operationName === 'subscription' &&
+        isBlockedByOptimisticUpdate(writeDependencies)
+      ) {
+        clearLayer(store.data, operation.key);
+        subscriptionResultBuffer.push(result);
+        return;
+      }
+
       const queryResult = query(store, operation, result.data);
       result.data = queryResult.data;
       if (operation.operationName === 'query') {
@@ -262,7 +280,7 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
       updateDependencies(result.operation, queryDependencies);
     }
 
-    return { data: result.data, error, extensions, operation };
+    return { operation, data: result.data, error, extensions };
   };
 
   return ops$ => {
@@ -387,14 +405,16 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
     const nonOptimisticResults$ = pipe(
       result$,
       filter(result => !optimisticKeysToDependencies.has(result.operation.key)),
-      map(result => {
+      map((result: OperationResult): void | OperationResult => {
         const pendingOperations: Operations = new Set();
         // Update the cache with the incoming API result
         const cacheResult = updateCacheWithResult(result, pendingOperations);
+        if (!cacheResult) return;
         // Execute all dependent queries
         executePendingOperations(result.operation, pendingOperations);
         return cacheResult;
-      })
+      }),
+      filter(result => !!result)
     );
 
     // Prevent mutations that were previously optimistic from being flushed
@@ -419,12 +439,25 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
 
           const results: OperationResult[] = [];
           const pendingOperations: Operations = new Set();
-
           let bufferedResult: OperationResult | void;
+
+          while ((bufferedResult = subscriptionResultBuffer.shift()))
+            if (
+              (bufferedResult = updateCacheWithResult(
+                bufferedResult,
+                pendingOperations
+              ))
+            )
+              results.push(bufferedResult);
+
           while ((bufferedResult = mutationResultBuffer.shift()))
-            results.push(
-              updateCacheWithResult(bufferedResult, pendingOperations)
-            );
+            if (
+              (bufferedResult = updateCacheWithResult(
+                bufferedResult,
+                pendingOperations
+              ))
+            )
+              results.push(bufferedResult);
 
           // Execute all dependent queries as a single batch
           executePendingOperations(result.operation, pendingOperations);
@@ -438,6 +471,6 @@ export const cacheExchange = (opts?: CacheExchangeOpts): Exchange => ({
       nonOptimisticResults$,
       optimisticMutationCompletion$,
       cacheResult$,
-    ]);
+    ]) as Source<OperationResult>;
   };
 };
