@@ -1,16 +1,27 @@
-import { Operation, OperationResult } from '../types';
+import { Operation, OperationResult, ExchangeInput } from '../types';
 import { makeResult, makeErrorResult } from '../utils';
 import { make } from 'wonka';
 
 const executeFetch = (
   operation: Operation,
   url: string,
-  fetchOptions: RequestInit
+  fetchOptions: RequestInit,
+  dispatchDebug: ExchangeInput['dispatchDebug']
 ): Promise<OperationResult> => {
   const fetcher = operation.context.fetch;
 
   let statusNotOk = false;
   let response: Response;
+
+  dispatchDebug({
+    type: 'fetchRequest',
+    message: 'A fetch request is being executed.',
+    operation,
+    data: {
+      url,
+      fetchOptions,
+    },
+  });
 
   return (fetcher || fetch)(url, fetchOptions)
     .then((res: Response) => {
@@ -25,10 +36,33 @@ const executeFetch = (
         throw new Error('No Content');
       }
 
+      dispatchDebug({
+        type: result.errors && !result.data ? 'fetchError' : 'fetchSuccess',
+        message: `A ${
+          result.errors ? 'failed' : 'successful'
+        } fetch response has been returned.`,
+        operation,
+        data: {
+          url,
+          fetchOptions,
+          value: result,
+        },
+      });
+
       return makeResult(operation, result, response);
     })
     .catch((error: Error) => {
       if (error.name !== 'AbortError') {
+        dispatchDebug({
+          type: 'fetchError',
+          message: error.name,
+          operation,
+          data: {
+            url,
+            fetchOptions,
+            value: error,
+          },
+        });
         return makeErrorResult(
           operation,
           statusNotOk ? new Error(response.statusText) : error,
@@ -41,7 +75,8 @@ const executeFetch = (
 export const makeFetchSource = (
   operation: Operation,
   url: string,
-  fetchOptions: RequestInit
+  fetchOptions: RequestInit,
+  dispatchDebug: ExchangeInput['dispatchDebug']
 ) => {
   return make<OperationResult>(({ next, complete }) => {
     const abortController =
@@ -57,7 +92,7 @@ export const makeFetchSource = (
           fetchOptions.signal = abortController.signal;
         }
 
-        return executeFetch(operation, url, fetchOptions);
+        return executeFetch(operation, url, fetchOptions, dispatchDebug);
       })
       .then((result: OperationResult | undefined) => {
         if (!ended) {
