@@ -178,8 +178,10 @@ export interface SerializedEntries {
 }
 
 export interface StorageAdapter {
-  read(): Promise<SerializedEntries>;
-  write(data: SerializedEntries): Promise<void>;
+  readData(): Promise<SerializedEntries>;
+  writeData(delta: SerializedEntries): Promise<void>;
+  readMetadata?(): Promise<string>;
+  writeMetadata?(json: string): void;
   onOnline?(cb: () => void): any;
 }
 
