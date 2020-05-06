@@ -505,8 +505,8 @@ describe('Store with storage', () => {
 
   it('should be able to store and rehydrate data', () => {
     const storage: StorageAdapter = {
-      read: jest.fn(),
-      write: jest.fn(),
+      readData: jest.fn(),
+      writeData: jest.fn(),
     };
 
     store.data.storage = storage;
@@ -524,9 +524,9 @@ describe('Store with storage', () => {
     InMemoryData.persistData();
     InMemoryData.clearDataState();
 
-    expect(storage.write).toHaveBeenCalled();
+    expect(storage.writeData).toHaveBeenCalled();
 
-    const serialisedStore = (storage.write as any).mock.calls[0][0];
+    const serialisedStore = (storage.writeData as any).mock.calls[0][0];
     expect(serialisedStore).toMatchSnapshot();
 
     store = new Store();
@@ -559,8 +559,8 @@ describe('Store with storage', () => {
     } as any;
 
     const storage: StorageAdapter = {
-      read: jest.fn(),
-      write: jest.fn(),
+      readData: jest.fn(),
+      writeData: jest.fn(),
     };
 
     store.data.storage = storage;
@@ -578,9 +578,9 @@ describe('Store with storage', () => {
     InMemoryData.persistData();
     InMemoryData.clearDataState();
 
-    expect(storage.write).toHaveBeenCalled();
+    expect(storage.writeData).toHaveBeenCalled();
 
-    const serialisedStore = (storage.write as any).mock.calls[0][0];
+    const serialisedStore = (storage.writeData as any).mock.calls[0][0];
     expect(serialisedStore).toMatchSnapshot();
 
     store = new Store();
@@ -596,8 +596,8 @@ describe('Store with storage', () => {
 
   it('persists commutative layers and ignores optimistic layers', () => {
     const storage: StorageAdapter = {
-      read: jest.fn(),
-      write: jest.fn(),
+      readData: jest.fn(),
+      writeData: jest.fn(),
     };
 
     store.data.storage = storage;
@@ -617,8 +617,8 @@ describe('Store with storage', () => {
     InMemoryData.persistData();
     InMemoryData.clearDataState();
 
-    expect(storage.write).toHaveBeenCalled();
-    const serialisedStore = (storage.write as any).mock.calls[0][0];
+    expect(storage.writeData).toHaveBeenCalled();
+    const serialisedStore = (storage.writeData as any).mock.calls[0][0];
 
     expect(serialisedStore).toEqual({
       'Query.base': 'true',

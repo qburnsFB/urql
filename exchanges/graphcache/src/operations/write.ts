@@ -152,8 +152,8 @@ export const writeFragment = (
   }
 
   const typename = getFragmentTypeName(fragment);
-  const writeData = { __typename: typename, ...data } as Data;
-  const entityKey = store.keyOfEntity(writeData);
+  const dataToWrite = { __typename: typename, ...data } as Data;
+  const entityKey = store.keyOfEntity(dataToWrite);
   if (!entityKey) {
     return warn(
       "Can't generate a key for writeFragment(...) data.\n" +
@@ -176,7 +176,7 @@ export const writeFragment = (
     entityKey
   );
 
-  writeSelection(ctx, entityKey, getSelectionSet(fragment), writeData);
+  writeSelection(ctx, entityKey, getSelectionSet(fragment), dataToWrite);
 
   if (process.env.NODE_ENV !== 'production') {
     popDebugNode();
