@@ -24,7 +24,7 @@ export function withUrqlClient(
     ssrExchange,
     fetchExchange,
   ],
-  ssr?: boolean
+  noSsr?: boolean
 ) {
   return (AppOrPage: NextPage<any> | typeof NextApp) => {
     const withUrql = ({ urqlClient, urqlState, ...rest }: WithUrqlProps) => {
@@ -51,7 +51,7 @@ export function withUrqlClient(
     // Set the displayName to indicate use of withUrqlClient.
     withUrql.displayName = `withUrqlClient(${getDisplayName(AppOrPage)})`;
 
-    if (AppOrPage.getInitialProps || ssr) {
+    if (AppOrPage.getInitialProps || !noSsr) {
       withUrql.getInitialProps = async (appOrPageCtx: NextUrqlContext) => {
         const { AppTree } = appOrPageCtx;
 
