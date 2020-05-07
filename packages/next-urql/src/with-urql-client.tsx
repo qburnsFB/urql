@@ -23,7 +23,8 @@ export function withUrqlClient(
     cacheExchange,
     ssrExchange,
     fetchExchange,
-  ]
+  ],
+  ssr?: boolean
 ) {
   return (AppOrPage: NextPage<any> | typeof NextApp) => {
     const withUrql = ({ urqlClient, urqlState, ...rest }: WithUrqlProps) => {
@@ -50,9 +51,7 @@ export function withUrqlClient(
     // Set the displayName to indicate use of withUrqlClient.
     withUrql.displayName = `withUrqlClient(${getDisplayName(AppOrPage)})`;
 
-    // TODO: maybe we should also run this when we are sure a page isn't
-    // only on the client-side (Static-page-optimization)
-    if (AppOrPage.getInitialProps) {
+    if (AppOrPage.getInitialProps || ssr) {
       withUrql.getInitialProps = async (appOrPageCtx: NextUrqlContext) => {
         const { AppTree } = appOrPageCtx;
 
