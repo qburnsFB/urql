@@ -24,7 +24,7 @@ export function withUrqlClient(
     ssrExchange,
     fetchExchange,
   ],
-  noSsr?: boolean
+  preferStatic?: boolean
 ) {
   return (AppOrPage: NextPage<any> | typeof NextApp) => {
     const withUrql = ({ urqlClient, urqlState, ...rest }: WithUrqlProps) => {
@@ -53,7 +53,7 @@ export function withUrqlClient(
 
     // TODO: this should probably become (AppOrPage.getInitialProps || ssr) in
     // the next major bump.
-    if (AppOrPage.getInitialProps || !noSsr) {
+    if (AppOrPage.getInitialProps || !preferStatic) {
       withUrql.getInitialProps = async (appOrPageCtx: NextUrqlContext) => {
         const { AppTree } = appOrPageCtx;
 
