@@ -1,7 +1,7 @@
 // These are guards that are used throughout the codebase to warn or error on
 // unexpected behaviour or conditions.
 // Every warning and error comes with a number that uniquely identifies them.
-// You can read more about the messages themselves in `docs/help.md`
+// You can read more about the messages themselves in `docs/graphcache/errors.md`
 
 import { Kind, ExecutableDefinitionNode, InlineFragmentNode } from 'graphql';
 
